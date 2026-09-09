@@ -1,4 +1,4 @@
-import os
+import io
 from sqlalchemy.orm import Session
 from app.models.negotiation import NegotiationSession
 from app.models.contract import Contract
@@ -38,14 +38,11 @@ def generate_contract(db: Session, session: NegotiationSession, state: Negotiati
         total_rounds=state.current_round
     )
 
-    pdf_path = _generate_pdf(payload)
-
     contract = Contract(
         session_id=session.id,
         final_price=payload.final_price,
         final_delivery_days=payload.final_delivery_days,
-        final_sla_percent=payload.final_sla_percent,
-        pdf_file_path=pdf_path
+        final_sla_percent=payload.final_sla_percent
     )
     db.add(contract)
     db.commit()
@@ -54,7 +51,7 @@ def generate_contract(db: Session, session: NegotiationSession, state: Negotiati
     return contract
 
 
-def _generate_pdf(payload: ContractPayload) -> str:
+def generate_pdf_bytes(payload: ContractPayload) -> io.BytesIO:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -63,12 +60,10 @@ def _generate_pdf(payload: ContractPayload) -> str:
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
     )
 
-    os.makedirs(settings.CONTRACT_OUTPUT_DIR, exist_ok=True)
-    filename = f"contract_{payload.session_id}.pdf"
-    filepath = os.path.join(settings.CONTRACT_OUTPUT_DIR, filename)
+    buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(
-        filepath,
+        buffer,
         pagesize=letter,
         leftMargin=inch,
         rightMargin=inch,
@@ -194,4 +189,5 @@ def _generate_pdf(payload: ContractPayload) -> str:
     ))
 
     doc.build(elements)
-    return filepath
+    buffer.seek(0)
+    return buffer

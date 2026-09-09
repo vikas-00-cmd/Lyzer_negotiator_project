@@ -1,27 +1,42 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-import os
 from app.database import get_db
 from app.models.contract import Contract
 from app.models.negotiation import NegotiationSession
+from app.schemas.contract import ContractPayload
+from app.engine.consensus import generate_pdf_bytes
 
 router = APIRouter(prefix="/contract", tags=["contract"])
 
 
 @router.get("/{session_id}/pdf")
 def get_contract_pdf(session_id: str, db: Session = Depends(get_db)):
-    contract = db.query(Contract).filter(Contract.session_id == session_id).first()
-    if not contract:
+    session_data = db.query(NegotiationSession).filter(NegotiationSession.id == session_id).first()
+    if not session_data or not session_data.contract:
         raise HTTPException(status_code=404, detail="Contract not found")
 
-    if not contract.pdf_file_path or not os.path.exists(contract.pdf_file_path):
-        raise HTTPException(status_code=404, detail="PDF file not found")
+    # Extract justifications from the last rounds
+    last_buyer_bid = next((r for r in reversed(session_data.rounds) if r.agent_type == "BUYER"), None)
+    last_vendor_bid = next((r for r in reversed(session_data.rounds) if r.agent_type == "VENDOR"), None)
 
-    return FileResponse(
-        path=contract.pdf_file_path,
-        filename=f"contract_{session_id}.pdf",
-        media_type="application/pdf"
+    # Reconstruct the payload for PDF generation
+    payload = ContractPayload(
+        session_id=session_id,
+        final_price=session_data.contract.final_price,
+        final_delivery_days=session_data.contract.final_delivery_days,
+        final_sla_percent=session_data.contract.final_sla_percent,
+        buyer_justification=last_buyer_bid.justification if last_buyer_bid else "",
+        vendor_justification=last_vendor_bid.justification if last_vendor_bid else "",
+        total_rounds=session_data.current_round
+    )
+
+    pdf_buffer = generate_pdf_bytes(payload)
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=contract_{session_id}.pdf"}
     )
 
 

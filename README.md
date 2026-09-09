@@ -1,9 +1,14 @@
-# 🤝 LyzrNegotiate: Autonomous B2B Negotiation Platform
+#  LyzrNegotiate: Autonomous B2B Negotiation Platform
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Lyzr](https://img.shields.io/badge/Powered_by-Lyzr_Agent_Studio-blue?style=for-the-badge)](#)
+
+> **🏆 AI Quest: Beyond the Wrapper (PS 02) Submission**
+> 
+> * **Live Interactive Dashboard (Frontend):** [https://lyzer-negotiator-project.vercel.app](https://lyzer-negotiator-project.vercel.app)
+> * **Live API & Swagger Docs (Backend):** [https://lyzer-negotiator-project.onrender.com](https://lyzer-negotiator-project.onrender.com)
 
 LyzrNegotiate is a production-grade, multi-agent AI platform designed to automate B2B vendor and procurement negotiations. By leveraging **Lyzr Agent Studio**, the platform pits an autonomous AI Buyer against an autonomous AI Vendor to negotiate contract terms (Price, Delivery Days, and SLA Penalties) in real-time, completely eliminating the weeks of email ping-pong typically required for B2B contracting.
 
@@ -75,19 +80,22 @@ graph TD
 
 ### 1. The Frontend (React + Vite + TypeScript)
 The frontend serves as the control center for human oversight. It is designed with TailwindCSS for a sleek, enterprise SaaS feel.
-* **Setup Dashboard (`HomePage.tsx`):** Users define strict policy bounds (Max Budget, Min SLA, Max Delivery) before initializing a session.
-* **Negotiation Arena (`ArenaPage.tsx`):** A real-time monitoring room. It visualizes the AI conversation, tracks the declining price curves via Recharts, and displays the mathematical boundaries holding the AI accountable.
-* **History Dashboard (`HistoryPage.tsx`):** A centralized view of all past negotiations, allowing users to replay past sessions and download finalized PDF contracts instantly.
+
+* **Setup Dashboard (HomePage.tsx):** Users define strict policy bounds (Max Budget, Min SLA, Max Delivery) before initializing a session.
+* **Negotiation Arena (ArenaPage.tsx):** A real-time monitoring room. It visualizes the AI conversation, tracks the declining price curves via Recharts, and displays the mathematical boundaries holding the AI accountable.
+* **History Dashboard (HistoryPage.tsx):** A centralized view of all past negotiations, allowing users to replay past sessions and download finalized PDF contracts instantly.
 
 ### 2. The Backend (FastAPI + SQLAlchemy)
-The backend acts as the "referee" between the user, the database, and the AI agents. 
+The backend acts as the "referee" between the user, the database, and the AI agents.
+
 * **The Orchestrator:** Manages the turn-based loop. It passes the current state of the negotiation to the AI, receives the counter-offer, and passes it to the Arbiter.
 * **Safe AI Arbiter:** A deterministic, mathematical firewall. Before any AI bid is recorded, the Arbiter parses the JSON output and verifies it does not violate the user's hard limits (e.g., spending more than the max budget). If the AI hallucinates or breaks a rule, the Arbiter forces a retry.
 * **Persistence:** Utilizes SQLAlchemy to support both local SQLite (for rapid development) and managed PostgreSQL (for production).
-* **Contract Generation:** Once a consensus is reached, the backend automatically compiles the agreed-upon price, SLA, and delivery days into a legally formatted PDF using ReportLab.
+* **Stateless Contract Generation:** To completely bypass ephemeral filesystem data-loss (a common issue on cloud platforms like Render), the backend generates legally formatted PDF contracts entirely on-the-fly. It queries the PostgreSQL database for the final terms, renders the PDF directly into an in-memory byte stream (`io.BytesIO`) via ReportLab, and pipes it straight to the browser using a FastAPI `StreamingResponse`.
 
 ### 3. The AI Layer (Lyzr Agent Studio)
-Instead of relying on basic LLM API wrappers, the platform connects directly to **Lyzr Agent Studio** (`https://agent-prod.studio.lyzr.ai/v3/inference/chat/`). 
+Instead of relying on basic LLM API wrappers, the platform connects directly to Lyzr Agent Studio (https://agent-prod.studio.lyzr.ai/v3/inference/chat/).
+
 * **Personas:** The agents are configured in the Lyzr Studio UI with specific negotiation tactics (e.g., aggressive price anchoring vs. value-based selling).
 * **Robust Parsing:** The backend utilizes defensive Pydantic parsing to handle the JSON payloads returned by the agents, protecting the system against minor LLM hallucinations.
 
@@ -96,9 +104,9 @@ Instead of relying on basic LLM API wrappers, the platform connects directly to 
 ## 🚀 Setup & Installation
 
 ### Prerequisites
-- Node.js (v18+)
-- Python (3.10+)
-- Lyzr API Key & Agent IDs (from [studio.lyzr.ai](https://studio.lyzr.ai))
+* Node.js (v18+)
+* Python (3.10+)
+* Lyzr API Key & Agent IDs (from studio.lyzr.ai)
 
 ### Backend Setup
 ```bash
@@ -128,7 +136,7 @@ npm run dev
 ---
 
 ## ☁️ Deployment
-
 This project is decoupled and optimized for modern PaaS (Platform as a Service) deployment.
-* **Frontend:** Deployed seamlessly on **Vercel** or **Netlify** (configured via the included `vercel.json` for React Router support).
-* **Backend:** Deployed on **Render** or **Railway**. The repository includes a `render.yaml` blueprint. We strongly recommend configuring Render's free **PostgreSQL** database and setting the `DATABASE_URL` environment variable to ensure persistent negotiation history.
+
+* **Frontend:** Deployed seamlessly on Vercel or Netlify (configured via the included vercel.json for React Router support).
+* **Backend:** Deployed on Render or Railway. The repository includes a render.yaml blueprint. We strongly recommend configuring Render's free PostgreSQL database and setting the DATABASE_URL environment variable to ensure persistent negotiation history.
