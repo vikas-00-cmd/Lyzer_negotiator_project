@@ -18,7 +18,6 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "baseUrl": ".",
     "types": ["vite/client", "vitest/globals"]
   },
   "include": ["src"]
