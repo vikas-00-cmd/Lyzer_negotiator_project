@@ -64,6 +64,8 @@ def parse_bid_from_response(
 
 # ── Agent adapter (implements BaseAgent interface) ────────────────────────────
 
+_CIRCUIT_BREAKER_TRIPPED = False
+
 class LyzrAgentAdapter(BaseAgent):
     """
     Wraps the Lyzr Agent Studio REST API behind the same BaseAgent interface
@@ -94,13 +96,29 @@ class LyzrAgentAdapter(BaseAgent):
         3. Return bid — Arbiter validation happens in the orchestrator
         Falls back to deterministic agent on any failure.
         """
+        global _CIRCUIT_BREAKER_TRIPPED
+
         if not settings.LYZR_API_KEY or not self.agent_id:
             return self._fallback.generate_offer(state)
         
-        # REMOVED try/except block to reveal the exact error!
-        message = self._build_message(state)
-        raw = call_studio_agent(self.agent_id, state.session_id, message)
-        return parse_bid_from_response(raw, state.current_round, self.agent_type)
+        if _CIRCUIT_BREAKER_TRIPPED:
+            return self._fallback.generate_offer(state)
+        
+        try:
+            message = self._build_message(state)
+            raw = call_studio_agent(self.agent_id, state.session_id, message)
+            return parse_bid_from_response(raw, state.current_round, self.agent_type)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 402:
+                print(f"Lyzr Agent Error ({self.agent_type}): 402 Payment Required. Tripping circuit breaker globally.")
+                _CIRCUIT_BREAKER_TRIPPED = True
+            else:
+                print(f"Lyzr Agent HTTP Error ({self.agent_type}): {e}.")
+            return self._fallback.generate_offer(state)
+        except Exception as e:
+            # Fallback to deterministic agent if Lyzr API is out of credits (402), down, or hallucinates
+            print(f"Lyzr Agent Error ({self.agent_type}): {e}. Falling back to deterministic agent.")
+            return self._fallback.generate_offer(state)
 
     def _build_message(self, state: NegotiationState) -> str:
         """Build the negotiation context message sent to the Studio agent."""

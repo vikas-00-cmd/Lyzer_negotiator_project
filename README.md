@@ -108,7 +108,19 @@ Instead of relying on basic LLM API wrappers, the platform connects directly to 
 * Python (3.10+)
 * Lyzr API Key & Agent IDs (from studio.lyzr.ai)
 
-### Backend Setup
+### Docker Setup (Recommended for Judges)
+The easiest way to spin up the entire full-stack application locally is via Docker:
+
+```bash
+# 1. Copy the environment variables
+cp .env.example .env
+
+# 2. Build and run the containers
+docker-compose up --build
+```
+The application will be available at `http://localhost:3000` (Frontend) and the API docs at `http://localhost:8000/docs`.
+
+### Backend Setup (Manual)
 ```bash
 cd backend
 python -m venv venv

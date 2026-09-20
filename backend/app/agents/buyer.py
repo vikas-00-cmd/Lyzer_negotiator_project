@@ -1,3 +1,10 @@
+"""Autonomous Buyer Agent — aggressive procurement negotiator.
+
+Implements an exponential-decay concession strategy that starts with
+a low anchor price and gradually concedes toward the vendor's position
+as rounds progress, while never exceeding the buyer's hard policy limits.
+"""
+
 from app.agents.base import BaseAgent
 from app.schemas.proposal import ProposalBid, ProposalAction, NegotiationState
 from app.schemas.policy import BuyerPolicyEnvelope
@@ -5,6 +12,16 @@ from app.engine.concession import calculate_concession
 
 
 class BuyerAgent(BaseAgent):
+    """Deterministic buyer agent using exponential-decay concession curves.
+
+    The buyer opens with a low anchor price and makes progressively
+    smaller concessions each round (controlled by a discount factor).
+    If a vendor's offer falls within the buyer's policy envelope,
+    the agent automatically accepts.
+
+    Attributes:
+        policy: The buyer's hard limits (max budget, max delivery, min SLA).
+    """
     def __init__(self, policy: BuyerPolicyEnvelope):
         super().__init__("BUYER")
         self.policy = policy

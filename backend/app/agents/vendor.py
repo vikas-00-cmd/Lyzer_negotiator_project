@@ -1,3 +1,11 @@
+"""Autonomous Vendor Agent — defensive value-based seller.
+
+Implements an exponential-decay concession strategy that starts with
+a high anchor price and gradually concedes toward the buyer's position
+as rounds progress, while never dropping below the vendor's floor price
+or exceeding maximum SLA penalty exposure.
+"""
+
 from app.agents.base import BaseAgent
 from app.schemas.proposal import ProposalBid, ProposalAction, NegotiationState
 from app.schemas.policy import VendorPolicyEnvelope
@@ -5,6 +13,16 @@ from app.engine.concession import calculate_concession
 
 
 class VendorAgent(BaseAgent):
+    """Deterministic vendor agent using exponential-decay concession curves.
+
+    The vendor opens with a high anchor price and makes progressively
+    smaller concessions each round (controlled by a discount factor).
+    If a buyer's offer meets or exceeds the vendor's policy floor,
+    the agent automatically accepts.
+
+    Attributes:
+        policy: The vendor's hard limits (min price, min delivery, max SLA).
+    """
     def __init__(self, policy: VendorPolicyEnvelope):
         super().__init__("VENDOR")
         self.policy = policy

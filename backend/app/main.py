@@ -5,12 +5,14 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.database import init_db
 from app.limits import limiter
+from app.config import settings
 from app.api import negotiation, contract
 
 
 @asynccontextmanager
 async def lifespan(app):
     init_db()
+    settings.validate_secrets()
     yield
 
 

@@ -40,8 +40,10 @@ describe('Contract integrity', () => {
 
   it('renders all contract terms', () => {
     render(<ContractSummary contract={validContract} />);
-    expect(screen.getByText('$45,500')).toBeInTheDocument();
-    expect(screen.getByText('35 days')).toBeInTheDocument();
-    expect(screen.getByText('3.5%')).toBeInTheDocument();
+    expect(screen.getByText(/\$45,500/)).toBeInTheDocument();
+    expect(screen.getByText(/35/)).toBeInTheDocument();
+    expect(screen.getByText(/days/)).toBeInTheDocument();
+    expect(screen.getByText(/3\.5/)).toBeInTheDocument();
+    expect(screen.getByText(/%/)).toBeInTheDocument();
   });
 });

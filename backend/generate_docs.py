@@ -87,8 +87,8 @@ def create_documentation():
     p.add_run("Safe AI Arbiter: ").bold = True
     p.add_run("A deterministic, mathematical firewall that rejects any AI hallucination or out-of-bounds offer.")
     p = doc.add_paragraph(style='List Bullet')
-    p.add_run("Contract Generation: ").bold = True
-    p.add_run("Compiles the agreed-upon price, SLA, and delivery days into a legally formatted PDF using ReportLab.")
+    p.add_run("Stateless Contract Generation: ").bold = True
+    p.add_run("To bypass ephemeral filesystem data-loss on cloud platforms like Render, the backend generates PDF contracts entirely on-the-fly. It renders the document directly into an in-memory byte stream via ReportLab and pipes it to the browser as a FastAPI StreamingResponse.")
 
     doc.add_heading('4.3 The AI Layer (Lyzr Agent Studio)', level=2)
     doc.add_paragraph("Connects directly to the official Lyzr Agent Studio inference endpoints (v3/inference/chat/).")

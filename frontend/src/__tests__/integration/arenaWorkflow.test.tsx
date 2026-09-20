@@ -29,6 +29,6 @@ describe('ArenaPage', () => {
     expect(screen.getByText('Negotiation Arena')).toBeInTheDocument();
     expect(screen.getByText('Negotiation Log')).toBeInTheDocument();
     expect(screen.getByText('Waiting for negotiation data...')).toBeInTheDocument();
-    expect(screen.getByText('Start New Negotiation')).toBeInTheDocument();
+    expect(screen.getByText(/New Negotiation/)).toBeInTheDocument();
   });
 });

@@ -1,3 +1,11 @@
+"""Contract generation and in-memory PDF rendering.
+
+When the negotiation reaches consensus (ACCEPTED status), this module
+extracts the agreed terms, persists a :class:`Contract` record, and
+provides an on-the-fly PDF generator that streams directly to the
+browser via ``io.BytesIO`` — completely bypassing ephemeral disk storage.
+"""
+
 import io
 from sqlalchemy.orm import Session
 from app.models.negotiation import NegotiationSession
@@ -8,6 +16,25 @@ from app.config import settings
 
 
 def generate_contract(db: Session, session: NegotiationSession, state: NegotiationState):
+    """Extract consensus terms from the negotiation and persist a contract record.
+
+    Locates the final accepted bid from the negotiation history,
+    constructs a :class:`ContractPayload`, and saves a :class:`Contract`
+    row to the database.  The PDF is *not* generated here — it is
+    rendered on-demand by :func:`generate_pdf_bytes` when the user
+    requests a download.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        session: The negotiation session that reached consensus.
+        state: The full negotiation state including bid history.
+
+    Returns:
+        The newly created :class:`Contract` record.
+
+    Raises:
+        ValueError: If no consensus bid can be found in the history.
+    """
     consensus = state.consensus
     if not consensus:
         for bid in reversed(state.history):
@@ -52,6 +79,22 @@ def generate_contract(db: Session, session: NegotiationSession, state: Negotiati
 
 
 def generate_pdf_bytes(payload: ContractPayload) -> io.BytesIO:
+    """Render a legally formatted PDF contract entirely in memory.
+
+    Uses ReportLab to build a professional contract document containing
+    the agreed commercial terms, negotiation justifications, and
+    signature blocks.  The PDF is written to an ``io.BytesIO`` buffer
+    (never to disk), making it immune to ephemeral filesystem wipes
+    on cloud platforms like Render.
+
+    Args:
+        payload: The contract data including final price, delivery,
+            SLA, justifications, and session metadata.
+
+    Returns:
+        A seeked-to-zero ``io.BytesIO`` buffer containing the PDF bytes,
+        ready to be streamed via FastAPI's ``StreamingResponse``.
+    """
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

@@ -46,3 +46,6 @@ backend.md
 frontend.md
 middleware_tech_stack.md
 skills.md
+
+*.log
+*.docx

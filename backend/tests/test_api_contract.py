@@ -14,7 +14,7 @@ from app.models.contract import Contract
 def client():
     db_name = f"test_{uuid.uuid4().hex}.db"
     db_url = f"sqlite:///{db_name}"
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     TestSession = sessionmaker(bind=engine)
 
@@ -31,21 +31,25 @@ def client():
     app.dependency_overrides.clear()
     engine.dispose()
     if os.path.exists(db_name):
-        os.remove(db_name)
+        try:
+            os.remove(db_name)
+        except PermissionError:
+            pass
 
 
 @pytest.fixture
 def db_with_contract():
     db_name = f"test_{uuid.uuid4().hex}.db"
     db_url = f"sqlite:///{db_name}"
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     TestSession = sessionmaker(bind=engine)
     db = TestSession()
 
     neg_session = NegotiationSession(
         buyer_policy={"max_budget": 50000},
-        vendor_policy={"min_price": 42000}
+        vendor_policy={"min_price": 42000},
+        current_round=1
     )
     db.add(neg_session)
     db.commit()
@@ -60,10 +64,11 @@ def db_with_contract():
     db.commit()
 
     def override_get_db():
+        db_session = TestSession()
         try:
-            yield db
+            yield db_session
         finally:
-            pass
+            db_session.close()
 
     app.dependency_overrides[get_db] = override_get_db
     yield neg_session.id, db_name
@@ -71,7 +76,10 @@ def db_with_contract():
     db.close()
     engine.dispose()
     if os.path.exists(db_name):
-        os.remove(db_name)
+        try:
+            os.remove(db_name)
+        except PermissionError:
+            pass
 
 
 def test_get_contract_details(client, db_with_contract):
@@ -86,7 +94,14 @@ def test_get_contract_not_found(client):
     assert response.status_code == 404
 
 
-def test_get_contract_pdf_not_found(client, db_with_contract):
+def test_get_contract_pdf_not_found(client):
+    response = client.get("/api/v1/contract/nonexistent/pdf")
+    assert response.status_code == 404
+
+
+def test_get_contract_pdf_success(client, db_with_contract):
     session_id, _ = db_with_contract
     response = client.get(f"/api/v1/contract/{session_id}/pdf")
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert "attachment" in response.headers["content-disposition"]

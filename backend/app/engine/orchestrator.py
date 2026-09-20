@@ -1,3 +1,13 @@
+"""Turn-based negotiation orchestrator and state machine.
+
+This module is the central coordinator of the negotiation lifecycle.
+It creates sessions, initialises buyer and vendor agents (either
+deterministic or Lyzr-backed), and drives the alternating offer loop.
+Each proposal passes through the Safe AI Arbiter before being persisted.
+The orchestrator detects consensus (ACCEPTED) or exhaustion (DEADLOCK)
+and triggers contract generation on agreement.
+"""
+
 import uuid
 from sqlalchemy.orm import Session
 from app.models.negotiation import NegotiationSession, NegotiationRound, NegotiationStatus
@@ -18,6 +28,20 @@ def create_session(
     vendor_policy: VendorPolicyEnvelope,
     max_rounds: int = 10
 ) -> NegotiationSession:
+    """Create and persist a new negotiation session.
+
+    Initialises the session with PENDING status and stores the buyer
+    and vendor policy envelopes as JSON for later rehydration.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        buyer_policy: The buyer's hard negotiation limits.
+        vendor_policy: The vendor's hard negotiation limits.
+        max_rounds: Maximum number of negotiation rounds before deadlock.
+
+    Returns:
+        The newly created and committed :class:`NegotiationSession`.
+    """
     session = NegotiationSession(
         id=str(uuid.uuid4()),
         status=NegotiationStatus.PENDING,
@@ -32,6 +56,23 @@ def create_session(
 
 
 def run_full_negotiation(db: Session, session_id: str) -> NegotiationSession:
+    """Execute the complete negotiation loop until consensus or deadlock.
+
+    Instantiates buyer and vendor agents (deterministic or Lyzr-backed),
+    then alternates offers until one agent accepts or ``max_rounds`` is
+    reached.  Every bid is validated by the Arbiter before persistence.
+    On acceptance, a PDF contract is automatically generated.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        session_id: UUID of the session to negotiate.
+
+    Returns:
+        The updated :class:`NegotiationSession` with final status.
+
+    Raises:
+        ValueError: If the session ID does not exist.
+    """
     session = db.query(NegotiationSession).filter(NegotiationSession.id == session_id).first()
     if not session:
         raise ValueError("Session not found")
@@ -101,6 +142,23 @@ def run_full_negotiation(db: Session, session_id: str) -> NegotiationSession:
 
 
 def run_one_step(db: Session, session_id: str) -> NegotiationState:
+    """Execute a single buyer-then-vendor round of the negotiation.
+
+    Rehydrates the full history from the database, runs one round
+    (buyer offer → arbiter check → vendor counter-offer → arbiter check),
+    and persists the results.  Used by the frontend's step-by-step
+    Arena mode to give the user real-time visibility into each round.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        session_id: UUID of the session to advance.
+
+    Returns:
+        The updated :class:`NegotiationState` with the new round appended.
+
+    Raises:
+        ValueError: If the session ID does not exist.
+    """
     session = db.query(NegotiationSession).filter(NegotiationSession.id == session_id).first()
     if not session:
         raise ValueError("Session not found")
@@ -191,6 +249,12 @@ def run_one_step(db: Session, session_id: str) -> NegotiationState:
 
 
 def _log_round(db: Session, session_id: str, round_number: int, bid: ProposalBid):
+    """Persist a single negotiation round to the database.
+
+    Creates a :class:`NegotiationRound` record capturing the agent's
+    bid details (price, delivery, SLA, action, justification) for
+    audit trail and history dashboard display.
+    """
     round_record = NegotiationRound(
         session_id=session_id,
         round_number=round_number,
